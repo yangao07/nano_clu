@@ -270,6 +270,7 @@ debwt_pac_t *debwt_gen_pac(gzFile fp_fa, debwt_count_t *l, debwt_count_t *fl, in
                 pac = (debwt_pac_t*)_err_realloc(pac, m_pac/2 * sizeof(debwt_pac_t));
                 memset(pac+l_pac/2, 0, (m_pac - l_pac)/2);
             }
+            // 'N' separates each chr to make sure chr are not connected
             _debwt_set_pac(pac, l_pac, c);
             l_pac++;
         }
@@ -301,7 +302,7 @@ static uint8_t *add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_
 	p = bns->anns + bns->n_seqs;
 	p->name = strdup((char*)seq->name.s);
 	p->anno = seq->comment.l > 0? strdup((char*)seq->comment.s) : strdup("(null)");
-	p->gi = 0; p->len = seq->seq.l;
+	p->gi = 0; p->len = seq->seq.l+1; // add separated 'N'
 	p->offset = (bns->n_seqs == 0)? 0 : (p-1)->offset + (p-1)->len;
 	p->n_ambs = 0;
 	for (i = lasts = 0; i < seq->seq.l; ++i) {
@@ -334,7 +335,33 @@ static uint8_t *add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_
 			++bns->l_pac;
 		}
 	}
-	++bns->n_seqs;
+    // add separated 'N'
+    int c = 4; // N
+    if (lasts == 'N') { // contiguous N
+        ++(*q)->len;
+    } else {
+        if (bns->n_holes == *m_holes) {
+            (*m_holes) <<= 1;
+            bns->ambs = (bntamb1_t*)realloc(bns->ambs, (*m_holes) * sizeof(bntamb1_t));
+        }
+        *q = bns->ambs + bns->n_holes;
+        (*q)->len = 1;
+        (*q)->offset = p->offset + i;
+        (*q)->amb = seq->seq.s[i];
+        ++p->n_ambs;
+        ++bns->n_holes;
+    }
+    { // fill buffer
+        if (c >= 4) c = lrand48()&3;
+        if (bns->l_pac == *m_pac) { // double the pac size
+            *m_pac <<= 1;
+            pac = realloc(pac, *m_pac/4);
+            memset(pac + bns->l_pac/4, 0, (*m_pac - bns->l_pac)/4);
+        }
+        _set_pac(pac, bns->l_pac, c);
+        ++bns->l_pac;
+    } 
+    ++bns->n_seqs;
 	return pac;
 }
 
@@ -413,17 +440,17 @@ int bwa_fa2pac(int argc, char *argv[])
 }
 
 // for debwt ref, each chr is seqarated by a 'N'
-// bns here has NO separated 'N'
+// bns here has separated 'N'
 int bns_pos2rid(const bntseq_t *bns, int64_t pos_f)
 {
 	int left, mid, right;
-	if (pos_f >= bns->l_pac + bns->n_seqs) return -1;
+	if (pos_f >= bns->l_pac) return -1;
 	left = 0; mid = 0; right = bns->n_seqs;
 	while (left < right) { // binary search
 		mid = (left + right) >> 1;
-		if (pos_f >= bns->anns[mid].offset + mid) {
+		if (pos_f >= bns->anns[mid].offset) {
 			if (mid == bns->n_seqs - 1) break;
-			if (pos_f < bns->anns[mid+1].offset + mid + 1) break; // bracketed
+			if (pos_f < bns->anns[mid+1].offset) break; // bracketed
 			left = mid + 1;
 		} else right = mid;
 	}
