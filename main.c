@@ -5,6 +5,7 @@
 #include "nano_clu.h"
 
 #define VERSION "1.0.0"
+char PROG[20] = "nanoclu";
 
 static int usage(void)	//main usage
 {

@@ -10,7 +10,7 @@ KSEQ_INIT(gzFile, gzread)
 #define CHUNK_READ_N 100000
 #define CHUNK_SIZE  10000000
 
-#define NANO_SEED_LEN 22
+#define NANO_MEM_LEN 14
 #define NANO_UNI_OCC_THD 2
 
 typedef struct {
@@ -50,8 +50,7 @@ typedef struct {
 typedef struct {
     int n_thread;  // number of threads
 
-    int seed_len;  //
-    int debwt_hash_len;
+    int mem_len;  //
     int debwt_uni_occ_thd;     
 } nano_clu_para;
 
@@ -69,6 +68,8 @@ typedef struct {
     int n_seqs;         // read seqs
     kseq_t *w_seqs;
     vote_t *v;          // vote for each cluster
+
+    FILE **clu_fp; int clu_n; // cluster file
 
     nano_clu_para *cp; // clu parameters
     // aux data during alignment

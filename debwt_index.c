@@ -9,13 +9,15 @@
 #include "bntseq.h"
 #include "utils.h"
 
+#define DEBWT_KMER_LEN 22
+
 int debwt_index_usage(void)
 {
     fprintf(stderr, "\n");
     fprintf(stderr, "Usage:   debwt index [option] <gene.fa>\n");
     fprintf(stderr, "                    bulid index for <gene.fa>\n\n");
     fprintf(stderr, "Option:  \n");
-    fprintf(stderr, "         -k [INT]     Length of kmer to construct de Bruijn graph. [Def=22]\n");
+    fprintf(stderr, "         -k [INT]     Length of kmer to construct de Bruijn graph. [Def=%d]\n", DEBWT_KMER_LEN);
     //fprintf(stderr, "         -s [INT]     Length of first level's hashed sequence. [Def=12]\n");
     fprintf(stderr, "         -f           Construct index ONLY for the forward strand of reference genome. [Def=false]\n");
     fprintf(stderr, "\n");
@@ -113,6 +115,7 @@ void hash_reset_idx_para(hash_idx *h)
     //  uid   8-mer  none   in/out  bwt_c  next_c  k-len  uni
     //                                             k-len: for special-kmer, len<k (2^5=32)
 */
+// kmer-len == 22
 void hash_init_idx32_para(hash_idx *h)
 {
     h->hp.k = 22;
@@ -145,7 +148,7 @@ void hash_init_idx32_para(hash_idx *h)
 
 void hash_reset_idx_para(hash_idx *h)
 {
-    if (h->hp.k != 22) {
+    if (h->hp.k != DEBWT_KMER_LEN) {
         h->hp.k_n = h->hp.k << 1;
         h->hp.k_m = 0;
         uint8_t i=0;

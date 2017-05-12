@@ -8,10 +8,18 @@
 #include "utils.h"
 #include "kseq.h"
 
+extern const char PROG[20];
+
 int nano_clu_usage(void)
 {
-    fprintf(stderr, "nano clu [option] ref.fa read.fq/fa\n");
-    return 0;
+    err_printf("\n");
+    err_printf("Usage:   %s clu [option] <gene_ref.fa> <gene.gtf> <read.fa/fq>\n\n", PROG);
+    err_printf("Input Options:\n\n");
+    err_printf("         -t --thread      [INT]    number of thread. [%d]\n", 1);
+    err_printf("         -l --mem-len     [INT]    minimum length of mem seed to count. [%d]\n", NANO_MEM_LEN);
+    err_printf("         -o --uni-occ     [INT]    maximum occurrence of seed's hit to end the debwt backtracking. [%d]\n", NANO_UNI_OCC_THD);
+    err_printf("\n");
+	return 1;
 }
 
 nano_clu_para *nano_init_cp(void)
@@ -19,8 +27,8 @@ nano_clu_para *nano_init_cp(void)
     // XXX init para
     nano_clu_para *cp = (nano_clu_para*)calloc(1, sizeof(nano_clu_para));
     cp->n_thread = 1;
-    cp->seed_len = NANO_SEED_LEN;
-    cp->debwt_hash_len = _BWT_HASH_K;
+    cp->mem_len = NANO_MEM_LEN;
+    // cp->debwt_hash_len = _BWT_HASH_K;
     cp->debwt_uni_occ_thd = NANO_UNI_OCC_THD;
     return cp;
 }
@@ -117,6 +125,7 @@ int nano_cal_clu(debwt_t *db, bntseq_t *bns, uint8_t *pac, kseq_t *seqs, nano_cl
     v->n = 0;
     stdout_printf("%s\n%s\n", seqs->name.s, seqs->seq.s);
     debwt_gen_loc_clu(bseq, seqs->seq.l, db, bns, pac, cp, v);
+    // output read to gene cluster file
 
     /* exact match test
     debwt_count_t ok, ol, l;
@@ -168,7 +177,7 @@ static void *nano_thread_main_clu(void *a)
     return 0;
 }
 
-int nano_clu_core(const char *ref_fn, const char *read_fn, nano_clu_para *nano_cp)
+int nano_clu_core(const char *ref_fn, const char *gtf_fn, const char *read_fn, nano_clu_para *nano_cp)
 {
     /* load index */
     err_printf("[nano_clu_core] Restoring ref-indices ... ");
@@ -189,6 +198,8 @@ int nano_clu_core(const char *ref_fn, const char *read_fn, nano_clu_para *nano_c
     //         printf("%s\t%c\n", bns->anns[rid].name, "+-"[_debwt_get_strand(db_idx->uni_pos_strand, m)]);
     //     }
     // }
+    
+    /* output cluster file */
 
     /* read read.fa/fq */
     int n_seqs, i;
@@ -245,16 +256,17 @@ int nano_clu(int argc, char *argv[])
     int c;
     nano_clu_para *nano_cp = nano_init_cp();
 
-    while ((c = getopt(argc, argv, "t:l:")) >= 0) {
+    while ((c = getopt(argc, argv, "t:l:o:")) >= 0) {
         switch (c)
         {
             case 't': nano_cp->n_thread = atoi(optarg); break;
-            case 'l': nano_cp->seed_len = atoi(optarg); break;
+            case 'l': nano_cp->mem_len = atoi(optarg); break;
+            case 'o': nano_cp->debwt_uni_occ_thd = atoi(optarg); break;
             default: return nano_clu_usage();
         }
     }
-    if (argc - optind != 2) return nano_clu_usage();
+    if (argc - optind != 3) return nano_clu_usage();
 
-    nano_clu_core(argv[optind], argv[optind+1], nano_cp);
+    nano_clu_core(argv[optind], argv[optind+1], argv[optind+2], nano_cp);
     return 0;
 }
