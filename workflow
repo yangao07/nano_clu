@@ -8,7 +8,9 @@
     1. count MEM seeds
     2. find most likely and secdonary likely gene
     3.  if (sec_score and best_score NOT close enougy
-            assign read to gene
+            1. assign read to gene
+            2. output read to tmp clu file
+            
         else
             assign read to remain-cluster
 

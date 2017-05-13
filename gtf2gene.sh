@@ -5,18 +5,19 @@ if [ $# -ne 3 ]; then
     echo "gtf2gene.sh"
     echo "      generate combined transcripts for each gene"
     echo "Usage:"
-    echo "      $0 gene.gtf ref.fa output.fa"
+    echo "      $0 ref.fa gene.gtf out_dir"
     exit
 fi
 
-gene_gtf=$1
-ref_fa=$2
-out_fa=$3
+ref_fa=$1
+gene_gtf=$2
+out_dir=$3
 tmp=.tmp
+gene_fa=$out_dir/gene.fa
 
-gffread=gfftrans # modified gffread
+gffread=gffread # modified gffread
 fxtools=fxtools
-pseudo_trans=./pseudo_trans.sh
+pseudo_trans=./merge_trans.sh
 
 # use gffread to generate all transcripts (with read name) for each gene
 echo "$gffread $gene_gtf -g $ref_fa -w $tmp"
@@ -24,18 +25,10 @@ $gffread $gene_gtf -g $ref_fa -w $tmp
 
 # use fxtools to merge transcripts of same gene
 # 'N' is used to separate transcripts of one gene
-echo "$fxtools merge-fa $tmp $out_fa N"
-$fxtools merge-fa $tmp $out_fa N
+echo "$fxtools merge-fa $tmp $gene_fa N"
+$fxtools merge-fa $tmp N > $gene_fa
 rm $tmp
 
 # generate pseudo longest anno-transcript for each gene, output to cluster file
-bash merge_trans.sh $ref_fa $gene_gtf
-
-
-# # generate bed file for only gene
-# awk 'BEGIN{OFS="\t"} ($3=="gene"){print $1,$4-1,$5}' $gene_gtf > $gene_gtf.bed
-# 
-# bedtools=bedtools
-# # use bedtools to generate sequence of each gene region
-# $bedtools getfasta -fi $ref_fa -bed $gene_gtf.bed -fo $out_fa
-# rm $gene_gtf.bed
+echo "bash $pseudo_trans $ref_fa $gene_gtf $out_dir"
+bash $pseudo_trans $ref_fa $gene_gtf $out_dir

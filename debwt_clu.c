@@ -77,7 +77,9 @@ void nano_add_vote(vote_t *v, int len, uni_sa_t uid, debwt_t *db, const bntseq_t
         rid = bns_pos2rid(bns, pos);
         if (rid == -1) err_fatal(__func__, "pos: %d\n", pos+1);
         _add_vote(rid, len/uni_n, v->vote_id, v->vote_score, v->n, v->m)
+#ifdef __DEBUG__
         stdout_printf("vote: %s\t%c\t%d\n", bns->anns[rid].name, "+-"[_debwt_get_strand(db->uni_pos_strand, m)], db->uni_pos[m]);
+#endif
     }
 }
 
@@ -369,7 +371,9 @@ int debwt_gen_loc_clu(uint8_t *bseq, int seq_len, debwt_t *db, bntseq_t *bns, ui
         if (max_len > 0) set_uni_loc(&uni_loc, max_read_off, max_loc_len2, max_uid, max_uni_off, max_loc_len1);
         if (max_len >= MEM_LEN) { // MEM seed
             cur_i = uni_loc.read_off - _BWT_HASH_K; // push mem loc
+#ifdef __DEBUG__
             stdout_printf("MEM: id: %d, uni_off: %d, read_off: %d, len: %d\n", uni_loc.uni_id, uni_loc.uni_off, uni_loc.read_off, uni_loc.uni_loc_len);
+#endif
             nano_add_vote(v, uni_loc.uni_loc_len, uni_loc.uni_id, db, bns);
         }
     }

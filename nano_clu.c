@@ -13,11 +13,12 @@ extern const char PROG[20];
 int nano_clu_usage(void)
 {
     err_printf("\n");
-    err_printf("Usage:   %s clu [option] <gene_ref.fa> <gene.gtf> <read.fa/fq>\n\n", PROG);
+    err_printf("Usage:   %s clu [option] <gene_ref.fa> <read.fa/fq>\n\n", PROG);
     err_printf("Input Options:\n\n");
     err_printf("         -t --thread      [INT]    number of thread. [%d]\n", 1);
     err_printf("         -l --mem-len     [INT]    minimum length of mem seed to count. [%d]\n", NANO_MEM_LEN);
     err_printf("         -o --uni-occ     [INT]    maximum occurrence of seed's hit to end the debwt backtracking. [%d]\n", NANO_UNI_OCC_THD);
+    err_printf("         -w --work-dir    [STR]    directory to generate temporary and output file.\n");
     err_printf("\n");
 	return 1;
 }
@@ -56,7 +57,6 @@ void free_vote(vote_t *v, int v_n)
 void aux_free(nano_aux_t *aux)
 {
     int i;
-    free(aux->cp);
     debwt_index_free(aux->db); free(aux->db);
     free(aux->pac); bns_destroy(aux->bns);
 
@@ -68,9 +68,10 @@ void aux_free(nano_aux_t *aux)
             free((aux->w_seqs+i)->qual.s);
         }
     }
-    free_vote(aux->v, CHUNK_READ_N);
     ks_destroy(aux->w_seqs->f);
     free(aux->w_seqs);
+    free_vote(aux->v, CHUNK_READ_N); fclose(aux->unclu);
+    free(aux->cp);
     free(aux);
 }
 
@@ -101,11 +102,20 @@ int nano_output_clu(nano_aux_t *aux)
                     sec_id = v[i].vote_id[j];
                 }
             }
-            stdout_printf("%s\n%s\n", seqs->name.s, seqs->seq.s);
-            stdout_printf("vote_id: %d, vote_score: %d\tsec: %d, sec-score: %d\n", max_id, max, sec_id, sec);
+            char gene[1024];
+            // open gene_clu.fa
+            strcpy(gene, aux->cp->wd); strcat(gene, "/"); strcat(gene, aux->bns->anns[max_id].name); strcat(gene, ".clu.fa");
+            FILE *genefp = fopen(gene, "a");
+            // cat seq >> gene_clu.fa
+#ifdef __DEBUG__
+            fprintf(stdout, "%s\nmax: %d\tmax_socre: %d\tsec: %d\tsec_score: %d\n", seqs->name.s, max_id, max, sec_id, sec);
+#endif
+            fprintf(genefp, ">%s\n", seqs->name.s);
+            fprintf(genefp, "%s\n", seqs->seq.s);
+            fclose(genefp);
         } else {
-            stdout_printf("%s\n%s\n", seqs->name.s, seqs->seq.s);
-            stdout_printf("vote_id: %s, vote_score: %d\n", "NONE", 0);
+            fprintf(aux->unclu, ">%s\n", seqs->name.s);
+            fprintf(aux->unclu, "%s\n", seqs->seq.s);
         }
     }
     return 0;
@@ -123,7 +133,9 @@ int nano_cal_clu(debwt_t *db, bntseq_t *bns, uint8_t *pac, kseq_t *seqs, nano_cl
 
     // seeding and locating
     v->n = 0;
+#ifdef __DEBUG__
     stdout_printf("%s\n%s\n", seqs->name.s, seqs->seq.s);
+#endif
     debwt_gen_loc_clu(bseq, seqs->seq.l, db, bns, pac, cp, v);
     // output read to gene cluster file
 
@@ -177,7 +189,7 @@ static void *nano_thread_main_clu(void *a)
     return 0;
 }
 
-int nano_clu_core(const char *ref_fn, const char *gtf_fn, const char *read_fn, nano_clu_para *nano_cp)
+int nano_clu_core(const char *ref_fn, const char *read_fn, nano_clu_para *nano_cp)
 {
     /* load index */
     err_printf("[nano_clu_core] Restoring ref-indices ... ");
@@ -217,12 +229,16 @@ int nano_clu_core(const char *ref_fn, const char *gtf_fn, const char *read_fn, n
         aux[i].db = db_idx; aux[i].bns = bns; aux[i].pac = pac;
     }
     vote_t *v = init_vote(CHUNK_READ_N);
+    char unclu_name[1024];
+    strcpy(unclu_name, nano_cp->wd); strcat(unclu_name, "/unclu.fa");
+    FILE *unclu = fopen(unclu_name, "w");
  
     if (nano_cp->n_thread <= 1) {
         while ((n_seqs = nano_read_seq(read_seqs, CHUNK_READ_N)) != 0) { 
             aux->n_seqs = n_seqs;
             aux->w_seqs = read_seqs;
             aux->v = v;
+            aux->unclu = unclu;
             nano_main_clu(aux);
             nano_output_clu(aux);
         }
@@ -238,6 +254,7 @@ int nano_clu_core(const char *ref_fn, const char *gtf_fn, const char *read_fn, n
                 aux[j].n_seqs = n_seqs;
                 aux[j].w_seqs = read_seqs;
                 aux[j].v = v;
+                aux[j].unclu = unclu;
                 pthread_create(&tid[j], &attr, nano_thread_main_clu, aux+j);
             }
             for (j = 0; j < nano_cp->n_thread; ++j) pthread_join(tid[j], 0);
@@ -256,17 +273,18 @@ int nano_clu(int argc, char *argv[])
     int c;
     nano_clu_para *nano_cp = nano_init_cp();
 
-    while ((c = getopt(argc, argv, "t:l:o:")) >= 0) {
+    while ((c = getopt(argc, argv, "t:l:o:w:")) >= 0) {
         switch (c)
         {
             case 't': nano_cp->n_thread = atoi(optarg); break;
             case 'l': nano_cp->mem_len = atoi(optarg); break;
             case 'o': nano_cp->debwt_uni_occ_thd = atoi(optarg); break;
+            case 'w': strcpy(nano_cp->wd, optarg); break;
             default: return nano_clu_usage();
         }
     }
-    if (argc - optind != 3) return nano_clu_usage();
+    if (argc - optind != 2) return nano_clu_usage();
 
-    nano_clu_core(argv[optind], argv[optind+1], argv[optind+2], nano_cp);
+    nano_clu_core(argv[optind], argv[optind+1], nano_cp);
     return 0;
 }
