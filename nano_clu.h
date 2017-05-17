@@ -52,7 +52,7 @@ typedef struct {
 
     int mem_len;  //
     int debwt_uni_occ_thd;     
-    char wd[1024];
+    char pre[1024];
 } nano_clu_para;
 
 typedef struct {
@@ -70,7 +70,7 @@ typedef struct {
     kseq_t *w_seqs;
     vote_t *v;          // vote for each cluster
 
-    FILE *unclu;
+    FILE *clu, *unclu;
 
     nano_clu_para *cp; // clu parameters
     // aux data during alignment
