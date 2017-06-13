@@ -28,8 +28,8 @@ sort_fa=sort_fa.sh
 pseudo_trans=./merge_trans.sh
 
 # extrack all 'exon' lines of gtf
-echo "awk '($3=="exon"){print}' $gene_gtf > $exon_gtf"
-awk '($3=="exon"){print}' $gene_gtf > $exon_gtf
+echo "cat $gene_gtf | awk '\$3=="exon"{print}' > $exon_gtf"
+cat $gene_gtf | awk '$3=="exon"{print}' > $exon_gtf
 
 # use gffread to generate all transcripts (with read name) for each gene
 echo "$gffread $exon_gtf -g $ref_fa -w $tmp"

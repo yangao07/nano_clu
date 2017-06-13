@@ -87,6 +87,7 @@ extern "C" {
 #define err_putchar(C) err_fputc((C), stdout)
 	int err_fputs(const char *s, FILE *stream);
 	int err_puts(const char *s);
+    void err_fgets(char *buff, size_t s, FILE *fp);
 	int err_fflush(FILE *stream);
 	int err_fclose(FILE *stream);
 	int err_gzclose(gzFile file);
@@ -106,13 +107,13 @@ extern "C" {
 	void ks_introsort_64 (size_t n, uint64_t *a);
 	void ks_introsort_128(size_t n, pair64_t *a);
 
-#define _realloc(p, m, type) {(m) <<= 1; p = (type*)_err_realloc(p, (m) * sizeof(type));}
 
 #ifdef __cplusplus
 }
 #endif
 
-// binary search
+#define _realloc(p, m, type) {(m) <<= 1; p = (type*)_err_realloc(p, (m) * sizeof(type));}
+
 #define _sim_insert(v, p, n, m, type) { \
     if (n == m) {               \
         _realloc(p, m, type)    \
@@ -198,6 +199,12 @@ extern "C" {
         }   \
     }   \
 } 
+
+#define MIN_OF_TWO(a, b) (a < b ? a : b)
+#define MAX_OF_TWO(a, b) (a > b ? a : b)
+#define MIN_OF_THREE(a, b, c) (a < b ? (a < c ? a : c) : (b < c ? b : c))
+#define MAX_OF_THREE(a, b, c) (a > b ? (a > c ? a : c) : (b > c ? b : c))
+#define AVG_OF_TWO(a, b) ((a&b) + ((a^b) >> 1))
 
 static inline uint64_t hash_64(uint64_t key)
 {

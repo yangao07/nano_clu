@@ -187,11 +187,13 @@ static void *nano_thread_main_clu(void *a)
 int nano_clu_core(const char *ref_fn, const char *read_fn, nano_clu_para *nano_cp)
 {
     /* load index */
-    err_printf("[nano_clu_core] Restoring ref-indices ... ");
+    err_func_format_printf(__func__, " Restoring ref-indices ...\n");
     debwt_t *db_idx = debwt_restore_index(ref_fn);
     bntseq_t *bns = bns_restore(ref_fn);
     uint8_t *pac = (uint8_t*)_err_calloc(bns->l_pac/4+1, 1);
-    fread(pac, 1, bns->l_pac/4+1, bns->fp_pac); err_printf("done!\n");
+    fread(pac, 1, bns->l_pac/4+1, bns->fp_pac);
+    err_func_format_printf(__func__, " Restoring ref-indices done!\n");
+
 
     // print debwt
     // int i, rid, pos;
@@ -229,6 +231,8 @@ int nano_clu_core(const char *ref_fn, const char *read_fn, nano_clu_para *nano_c
     strcpy(unclu_name, nano_cp->pre); strcat(unclu_name, ".unclu.fa");
     FILE *clu = fopen(clu_name, "w"), *unclu = fopen(unclu_name, "w");
  
+
+    err_func_format_printf(__func__, " Clustering nanopore reads ...\n");
     if (nano_cp->n_thread <= 1) {
         while ((n_seqs = nano_read_seq(read_seqs, CHUNK_READ_N)) != 0) { 
             aux->n_seqs = n_seqs;
@@ -261,6 +265,7 @@ int nano_clu_core(const char *ref_fn, const char *read_fn, nano_clu_para *nano_c
         }
         pthread_rwlock_destroy(&RWLOCK);
     }
+    err_func_format_printf(__func__, " Clustering nanopore reads done!\n");
     aux_free(aux);
     err_gzclose(readfp);
     return 0;
