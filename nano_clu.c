@@ -13,12 +13,13 @@ extern const char PROG[20];
 int nano_clu_usage(void)
 {
     err_printf("\n");
+    err_printf("Program: %s (cluster Nanopore reads into gene clusters)\n\n", PROG);
     err_printf("Usage:   %s clu [option] <gene_ref.fa> <read.fa/fq>\n\n", PROG);
     err_printf("Input Options:\n\n");
     err_printf("         -t --thread      [INT]    number of thread. [%d]\n", 1);
     err_printf("         -l --mem-len     [INT]    minimum length of mem seed to count. [%d]\n", NANO_MEM_LEN);
-    err_printf("         -o --uni-occ     [INT]    maximum occurrence of seed's hit to end the debwt backtracking. [%d]\n", NANO_UNI_OCC_THD);
-    err_printf("         -O --out-prefix  [STR]    prefix of output files.\n");
+    err_printf("         -c --uni-occ     [INT]    maximum occurrence of seed's hit to end the debwt backtracking. [%d]\n", NANO_UNI_OCC_THD);
+    err_printf("         -o --out-prefix  [STR]    prefix of output files.\n");
     err_printf("\n");
 	return 1;
 }
@@ -39,6 +40,7 @@ vote_t *init_vote(int v_n)
     int i; for (i = 0; i < v_n; ++i) {
         v[i].n = 0, v[i].m = 10;
         v[i].vote_id = (int*)_err_malloc(10 * sizeof(int));
+        v[i].hit = (int*)_err_malloc(10 * sizeof(int));
         v[i].vote_score = (int*)_err_malloc(10 * sizeof(int));
     }
     return v;
@@ -49,6 +51,7 @@ void free_vote(vote_t *v, int v_n)
     int i;
     for (i = 0; i < v_n; ++i) {
         free(v[i].vote_id); free(v[i].vote_score);
+        free(v[i].hit);
     }
     free(v);
 }
@@ -87,18 +90,20 @@ int nano_read_seq(kseq_t *read_seq, int chunk_read_n)
 int nano_output_clu(nano_aux_t *aux)
 {
     kseq_t *w_seqs = aux->w_seqs; int n_seqs = aux->n_seqs; vote_t *v = aux->v;
-    int i, j, max, max_id, sec, sec_id;
+    int i, j, max, max_hit, max_id, sec, sec_hit, sec_id;
     for (i = 0; i < n_seqs; ++i) {
         kseq_t *seqs = w_seqs + i;
         if (v[i].n > 0) {
-            max = 0; max_id = v[i].vote_id[0];
-            sec = 0; sec_id = -1;
+            max = 0; max_hit = 0; max_id = v[i].vote_id[0];
+            sec = 0; sec_hit = -1, sec_id = -1;
             for (j = 0; j < v[i].n; ++j) {
                 if (v[i].vote_score[j] > max) {
                     max = v[i].vote_score[j];
+                    max_hit = v[i].hit[j];
                     max_id = v[i].vote_id[j];
                 } else if (v[i].vote_score[j] > sec) {
                     sec = v[i].vote_score[j];
+                    sec_hit = v[i].hit[j];
                     sec_id = v[i].vote_id[j];
                 }
             }
@@ -106,10 +111,11 @@ int nano_output_clu(nano_aux_t *aux)
 #ifdef __DEBUG__
             fprintf(stdout, "%s\nmax: %d\tmax_socre: %d\tsec: %d\tsec_score: %d\n", seqs->name.s, max_id, max, sec_id, sec);
 #endif
-            fprintf(aux->clu, ">%s %s\n", seqs->name.s, aux->bns->anns[max_id].name);
+            fprintf(aux->clu, ">%s %d %s %c %d %d\n", seqs->name.s, (int)seqs->seq.l, aux->bns->anns[abs(max_id)].name, "+-"[max_id < 0], max, max_hit);
+            //fprintf(aux->clu, ">%s %d %s %c %d %d %s %c %d %d\n", seqs->name.s, (int)seqs->seq.l, aux->bns->anns[abs(max_id)].name, "+-"[max_id < 0], max, max_hit, aux->bns->anns[abs(sec_id)].name, "+-"[sec_id < 0], sec, sec_hit);
             fprintf(aux->clu, "%s\n", seqs->seq.s);
         } else { // output to .unclu.fa
-            fprintf(aux->unclu, ">%s\n", seqs->name.s);
+            fprintf(aux->unclu, ">%s %d\n", seqs->name.s, (int)seqs->seq.l);
             fprintf(aux->unclu, "%s\n", seqs->seq.s);
         }
     }
@@ -242,6 +248,7 @@ int nano_clu_core(const char *ref_fn, const char *read_fn, nano_clu_para *nano_c
             aux->unclu = unclu;
             nano_main_clu(aux);
             nano_output_clu(aux);
+            err_func_format_printf(__func__, "%d reads have been clustered\n", n_seqs);
         }
     } else { // multi-threads
         pthread_rwlock_init(&RWLOCK, NULL);
@@ -262,6 +269,7 @@ int nano_clu_core(const char *ref_fn, const char *read_fn, nano_clu_para *nano_c
             for (j = 0; j < nano_cp->n_thread; ++j) pthread_join(tid[j], 0);
             free(tid);
             nano_output_clu(aux);
+            err_func_format_printf(__func__, "%d reads have been clustered\n", n_seqs);
         }
         pthread_rwlock_destroy(&RWLOCK);
     }
@@ -276,13 +284,13 @@ int nano_clu(int argc, char *argv[])
     int c;
     nano_clu_para *nano_cp = nano_init_cp();
 
-    while ((c = getopt(argc, argv, "t:l:o:O:")) >= 0) {
+    while ((c = getopt(argc, argv, "t:l:c:o:")) >= 0) {
         switch (c)
         {
             case 't': nano_cp->n_thread = atoi(optarg); break;
             case 'l': nano_cp->mem_len = atoi(optarg); break;
-            case 'o': nano_cp->debwt_uni_occ_thd = atoi(optarg); break;
-            case 'O': strcpy(nano_cp->pre, optarg); break;
+            case 'c': nano_cp->debwt_uni_occ_thd = atoi(optarg); break;
+            case 'o': strcpy(nano_cp->pre, optarg); break;
             default: return nano_clu_usage();
         }
     }

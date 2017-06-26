@@ -5,13 +5,13 @@
 #include "nano_clu.h"
 
 #define VERSION "1.0.0"
-char PROG[20] = "nanoclu";
+char PROG[20] = "NanoClu";
 
 static int usage(void)	//main usage
 {
 	fprintf(stderr, "\n");
-	fprintf(stderr, "Program: NanoClu (Read clustering for Nanopore RNA-seq data)\n");
-	fprintf(stderr, "Usage:   nanoclu <command> [options]\n\n");
+	fprintf(stderr, "Program: %s (Read clustering for Nanopore RNA-seq data)\n\n", PROG);
+	fprintf(stderr, "Usage:   %s <command> [options]\n\n", PROG);
 	fprintf(stderr, "Command: \n");
 	fprintf(stderr, "         index      index gene region sequence\n");
 	fprintf(stderr, "         clu        cluster RNA-seq based on each gene region\n");

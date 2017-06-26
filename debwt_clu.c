@@ -48,24 +48,29 @@ void uni_pos_print(uni_sa_t uid, debwt_t *db, const bntseq_t *bns)
     }
 }
 
-#define _add_vote(v, l, p, pc, n, m) { \
+#define _add_vote(v, l, p, pc1, pc2, n, m) { \
     int _flag, _k_i;    \
     _bin_insert_idx(v, p, n, m, int, _flag, _k_i)   \
     if (_flag == 0) {                \
         if (n == m) {               \
-            int _m = m; \
-            _realloc(p, _m, int)    \
-            _realloc(pc, m, int)    \
+            int _m1 = m, _m2 = m; \
+            _realloc(p, _m1, int)    \
+            _realloc(pc1, _m2, int)    \
+            _realloc(pc2, m, int)    \
         }                           \
         if (_k_i <= n-1) {             \
             memmove(p+_k_i+1, p+_k_i, (n-_k_i)*sizeof(int));  \
-            memmove(pc+_k_i+1, pc+_k_i, (n-_k_i)*sizeof(int));  \
+            memmove(pc1+_k_i+1, pc1+_k_i, (n-_k_i)*sizeof(int));  \
+            memmove(pc2+_k_i+1, pc2+_k_i, (n-_k_i)*sizeof(int));  \
         }   \
         (p)[_k_i] = v;               \
-        (pc)[_k_i] = l; \
+        (pc1)[_k_i] = l; \
+        (pc2)[_k_i] = 1; \
         (n)++;                      \
-    } else                          \
-        ((pc)[_k_i])+=l;   \
+    } else {                        \
+        ((pc1)[_k_i])+=l;   \
+        ((pc2)[_k_i])+=1;   \
+    }       \
 }
 
 void nano_add_vote(vote_t *v, int len, uni_sa_t uid, debwt_t *db, const bntseq_t *bns)
@@ -76,7 +81,8 @@ void nano_add_vote(vote_t *v, int len, uni_sa_t uid, debwt_t *db, const bntseq_t
         pos = db->uni_pos[m];
         rid = bns_pos2rid(bns, pos);
         if (rid == -1) err_fatal(__func__, "pos: %d\n", pos+1);
-        _add_vote(rid, len/uni_n, v->vote_id, v->vote_score, v->n, v->m)
+        if (_debwt_get_strand(db->uni_pos_strand, m) == 1) rid = -rid;
+        _add_vote(rid, len/uni_n, v->vote_id, v->vote_score, v->hit, v->n, v->m)
 #ifdef __DEBUG__
         stdout_printf("vote: %s\t%c\t%d\n", bns->anns[rid].name, "+-"[_debwt_get_strand(db->uni_pos_strand, m)], db->uni_pos[m]);
 #endif
@@ -369,7 +375,7 @@ int debwt_gen_loc_clu(uint8_t *bseq, int seq_len, debwt_t *db, bntseq_t *bns, ui
         // next loop
         cur_i = old_i;
         if (max_len > 0) set_uni_loc(&uni_loc, max_read_off, max_loc_len2, max_uid, max_uni_off, max_loc_len1);
-        if (max_len >= MEM_LEN) { // MEM seed
+        if (max_len >= cp->mem_len) { // MEM seed
             cur_i = uni_loc.read_off - _BWT_HASH_K; // push mem loc
 #ifdef __DEBUG__
             stdout_printf("MEM: id: %d, uni_off: %d, read_off: %d, len: %d\n", uni_loc.uni_id, uni_loc.uni_off, uni_loc.read_off, uni_loc.uni_loc_len);

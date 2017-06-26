@@ -1,28 +1,27 @@
 #!/bin/bash
-# usage: gtf2gene.sh gene.gtf ref.fa output.fa
+# usage: gtf2-gene.sh gene.gtf ref.fa output.fa
 
 if [ $# -ne 4 ]; then
-    echo "gtf2gene.sh"
+    echo "gtf2-gene.sh"
     echo "      generate combined transcript for each gene"
     echo "      generate pseudo transcript for each gene (combined exonic sequences)"
     echo "Usage:"
-    echo "      $0 ref.fa gene.gtf gene.fa trans.fa"
+    echo "      $0 ref.fa gene.gtf gene.fa exonic.fa"
     exit
 fi
 
 ref_fa=$1
 gene_gtf=$2
 gene_fa=$3
-trans_fa=$4
+exonic_fa=$4
 
 out_dir=$(dirname $gene_fa)
 
 exon_gtf=$out_dir/.tmp.exon.gtf
 tmp=$out_dir/.tmp.fa
 tmp2=$out_dir/.tmp2.fa
-gene_fa=$out_dir/gene.fa
 
-gffread=gffread # modified gffread
+gffread=gffread-only-GeneID # modified gffread
 fxtools=fxtools
 sort_fa=sort_fa.sh
 pseudo_trans=./merge_trans.sh
@@ -52,7 +51,7 @@ $fxtools merge-fa $tmp2 N > $gene_fa
 rm $tmp2
 
 # generate pseudo longest anno-transcript for each gene, output to cluster file
-echo "bash $pseudo_trans $ref_fa $gene_gtf $exon_gtf $trans_fa"
-bash $pseudo_trans $ref_fa $gene_gtf $exon_gtf $trans_fa
+echo "bash $pseudo_trans $ref_fa $gene_gtf $exon_gtf $exonic_fa"
+bash $pseudo_trans $ref_fa $gene_gtf $exon_gtf $exonic_fa
 
 rm $exon_gtf

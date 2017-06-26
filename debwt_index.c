@@ -11,11 +11,12 @@
 
 #define DEBWT_KMER_LEN 22
 
+extern char PROG[20];
 int debwt_index_usage(void)
 {
     fprintf(stderr, "\n");
-    fprintf(stderr, "Usage:   debwt index [option] <gene.fa>\n");
-    fprintf(stderr, "                    bulid index for <gene.fa>\n\n");
+    fprintf(stderr, "Program: %s (bulid index for reference)\n\n", PROG);
+    fprintf(stderr, "Usage:   %s index [option] <gene.fa>\n\n", PROG);
     fprintf(stderr, "Option:  \n");
     fprintf(stderr, "         -k [INT]     Length of kmer to construct de Bruijn graph. [Def=%d]\n", DEBWT_KMER_LEN);
     //fprintf(stderr, "         -s [INT]     Length of first level's hashed sequence. [Def=12]\n");

@@ -12,7 +12,7 @@ trans_fa=$4
 
 out_dir=$(dirname $trans_fa)
 
-gffread=gffread
+gffread=gffread-only-GeneID
 # gene.name
 name=$out_dir/.tmp_name
 cat $gene_gtf | awk -F "\"|\t| " '($3=="gene"){print $11}' > $name

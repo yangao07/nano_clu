@@ -7,7 +7,11 @@
 
 KSEQ_INIT(gzFile, gzread)
 
+#ifdef __DEBUG__
+#define CHUNK_READ_N 1
+#else
 #define CHUNK_READ_N 100000
+#endif
 #define CHUNK_SIZE  10000000
 
 #define NANO_MEM_LEN 14
@@ -15,7 +19,7 @@ KSEQ_INIT(gzFile, gzread)
 
 typedef struct {
     int n, m;
-    int *vote_id, *vote_score;
+    int *vote_id, *hit, *vote_score;
 } vote_t; // cluster
 
 typedef struct {
